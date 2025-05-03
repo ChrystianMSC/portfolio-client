@@ -29,6 +29,7 @@ export default function Scene(){
     useEffect(() => {
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+        camera.position.set(0, 0.5, -1);
         
         const textureLoader = new THREE.TextureLoader();
         const renderer = new THREE.WebGLRenderer();
@@ -36,7 +37,6 @@ export default function Scene(){
         renderer.setAnimationLoop( animate );
         document.getElementById('body')?.appendChild(renderer.domElement);
         
-
         const rootNode = new THREE.Object3D();
         scene.add(rootNode)
 
@@ -49,7 +49,7 @@ export default function Scene(){
             texture.colorSpace = THREE.SRGBColorSpace;
 
             const baseNode = new THREE.Object3D();
-            baseNode.rotation.y = i * (2 * Math.PI / count);
+            baseNode.position.x = i * count;
 
             const frame = new THREE.Mesh(
                 new THREE.BoxGeometry(3.1, 2.1, 0.09),
@@ -94,33 +94,37 @@ export default function Scene(){
             rootNode.add(baseNode);
         }
         
-        const spotlight = new THREE.SpotLight(0xffffff, 100.0, 10.0, 0.65, 1);
+        const spotlight = new THREE.SpotLight(0xffffff, 300.0, 10.0, 0.65, 1);
         spotlight.position.set(0, 5, 0);
         spotlight.target.position.set(0, 0.5, -5);
-        
-        const mirror = new Reflector(
-            new THREE.CircleGeometry(10),
-            {
-                color: 0x303030,
-                textureWidth: window.innerWidth,
-                textureHeight: window.innerHeight
-            }
-        )
-        mirror.rotateX(-Math.PI / 2);
-        mirror.position.y = -1.1
 
-        scene.add(spotlight);
-        scene.add(spotlight.target)
-        scene.add(mirror);
+        const light = new THREE.AmbientLight(0xffffff, 7.0);
+        light.position.set(0, 5, 0);
+        
+        scene.add(light);
         const title = document.getElementById('title')
         const subtitle = document.getElementById('subtitle')
         if (title) title.innerText = titles[0];
         if (subtitle) subtitle.innerText = subtitles[0];
 
-        function rotateGallery(direction: number, newIndex : Record<string, any>){
-            const deltaY = (direction * (2 * Math.PI / count));
-            new Tween(rootNode.rotation)
-            .to({y: rootNode.rotation.y + deltaY})
+        function slideTo(direction: number, newIndex : Record<string, any>){
+            let newX = direction * count;
+            console.log(direction);
+            console.log(newIndex.index);
+
+            if (direction === -1 && newIndex.index === 1) {
+                newX = count * count - 6;
+                
+            }
+            else if (direction === 1 && newIndex.index === 4) {
+                newX = 0;
+            }
+            else{
+                newX = camera.position.x + newX;
+            }
+            
+            new Tween(camera.position)
+            .to({x: newX})
             .easing(Easing.Quadratic.InOut)
             .start()
             .onStart(()=>{
@@ -144,11 +148,6 @@ export default function Scene(){
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize( window.innerWidth, window.innerHeight );
-
-            mirror.getRenderTarget().setSize(
-                window.innerWidth,
-                window.innerHeight
-            )
         })
 
         window.addEventListener('click',  (ev) => {
@@ -161,15 +160,15 @@ export default function Scene(){
 
             raycaster.setFromCamera(mouseNDC, camera);
 
-            const intersections =raycaster.intersectObject(rootNode, true);
+            const intersections = raycaster.intersectObject(rootNode, true);
             if (intersections.length > 0) {
                 const obj  = intersections[0].object;
                 const newIndex = obj.userData;
                 if (obj.name === "leftArrow") {
-                    rotateGallery(-1, newIndex);
+                    slideTo(-1, newIndex);
                 }
                 if (obj.name === "rightArrow") {
-                    rotateGallery(1, newIndex);
+                    slideTo(1, newIndex);
                 }
             }
         })
