@@ -28,6 +28,94 @@ export default function Scene(){
 
     useEffect(() => {
         const scene = new THREE.Scene();
+        const bgGeometry = new THREE.PlaneGeometry(2, 2);
+        const bgMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                u_time: { value: 0.0 },
+                u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+            },
+            vertexShader: `
+                void main() {
+                    gl_Position = vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float u_time;
+                uniform vec2 u_resolution;
+
+                float hash(vec2 p) {
+                    return fract(sin(dot(p ,vec2(127.1,311.7))) * 43758.5453123);
+                }
+
+                float noise(vec2 p) {
+                    vec2 i = floor(p);
+                    vec2 f = fract(p);
+                    vec2 u = f*f*(3.0 - 2.0*f);
+
+                    return mix(
+                        mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x),
+                        mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x),
+                        u.y);
+                }
+
+                float fbm(vec2 p) {
+                    float value = 0.0;
+                    float amplitude = 0.5;
+                    for (int i = 0; i < 3; i++) {
+                        value += amplitude * noise(p);
+                        p *= 2.0;
+                        amplitude *= 0.5;
+                    }
+                    return value;
+                }
+
+                // Color palette interpolation
+                vec3 getPaletteColor(float t) {
+                    vec3 colors[8];
+                    colors[0] = vec3(0.0, 0.125, 0.180);   // #00202e
+                    colors[1] = vec3(0.0, 0.247, 0.361);   // #003f5c
+                    colors[2] = vec3(0.173, 0.282, 0.459); // #2c4875
+                    colors[3] = vec3(0.541, 0.314, 0.561); // #8a508f
+                    colors[4] = vec3(0.737, 0.314, 0.565); // #bc5090
+                    colors[5] = vec3(1.0, 0.388, 0.38);    // #ff6361
+                    colors[6] = vec3(1.0, 0.52, 0.192);    // #ff8531
+                    colors[7] = vec3(1.0, 0.839, 0.502);   // #ffd380
+
+                    float scaledT = clamp(t, 0.0, 1.0) * float(8 - 1);
+                    int index = int(floor(scaledT));
+                    float fractPart = fract(scaledT);
+
+                    return mix(colors[index], colors[min(index + 1, 7)], fractPart);
+                }
+
+                void main() {
+                    vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+                    uv.x *= u_resolution.x / u_resolution.y;
+
+                    vec2 motion = uv * 2.0 + vec2(u_time * 0.1, u_time * 0.05);
+                    float n = fbm(motion);
+
+                    float shift = u_time * 0.25;
+                    float contour = fract(n * 10.0 - shift);
+                    float line = smoothstep(0.01, 0.03, contour) * (1.0 - smoothstep(0.97, 0.99, contour));
+
+                    vec3 color = getPaletteColor(n);
+
+                    // Boost contrast: make darks darker, brights brighter
+                    float contrastLine = pow(line, 2.0); // Adjust this to control contrast
+                    color = mix(vec3(0.0), color, contrastLine);
+
+                    gl_FragColor = vec4(color, 1.0);
+                }
+            `,
+            depthWrite: false,
+            depthTest: false,
+            transparent: false,
+        });
+        const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+        bgMesh.frustumCulled = false; // Prevent removal when out of view
+        scene.add(bgMesh);
+
         const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
         camera.position.set(0, 0.5, -1);
         
@@ -149,6 +237,8 @@ export default function Scene(){
         }
 
         function animate() {
+            updateTween()
+
             raycasterMouse.setFromCamera(mouse, camera);
             const intersectsCard = raycasterMouse.intersectObjects(cards);
 
@@ -162,7 +252,8 @@ export default function Scene(){
                 const floatOffset = Math.sin(time + idx) * 0.05; // Subtle float
                 card.position.y = card.userData.baseY + floatOffset;
             });
-            updateTween()
+            
+            bgMaterial.uniforms.u_time.value = performance.now() / 1000;
             renderer.render( scene, camera );
         }
 
@@ -175,6 +266,7 @@ export default function Scene(){
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize( window.innerWidth, window.innerHeight );
+            bgMaterial.uniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
         })
 
         window.addEventListener('click',  (ev) => {
