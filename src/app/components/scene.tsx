@@ -9,22 +9,15 @@ import { Easing, Tween , update as updateTween } from "three/examples/jsm/libs/t
 export default function Scene(){
     
     const titles = [
-        'The Death of Socrates',
-        'Starry Night',
-        'The Great Wave off Kanagawa',
-        'Effect of Spring, Giverny',
-        'Mount Corcoran',
-        'A Sunday on La Grande Jatte'
+        'This WebSite',
+        '3d Web Viewer'
     ];
-    
-    const subtitles = [
-        'Jacques-Louis David',
-        'Vincent Van Gogh',
-        'Katsushika Hokusai',
-        'Claude Monet',
-        'Albert Bierstadt',
-        'George Seurat'
+    const images = [
+        'ThisSite.png',
+        '3DWebViewer.png'
     ];
+
+    let count = 2;
 
     useEffect(() => {
         const scene = new THREE.Scene();
@@ -137,10 +130,10 @@ export default function Scene(){
         const raycasterMouse = new THREE.Raycaster();
         let hoveredCard: THREE.Object3D | null = null;
 
-        let count = 6;
+       
 
         for (let i = 0; i < count; i++) {
-            const texture = textureLoader.load('socrates.jpg');
+            const texture = textureLoader.load(images[i]);
             texture.colorSpace = THREE.SRGBColorSpace;
 
             const baseNode = new THREE.Object3D();
@@ -192,9 +185,7 @@ export default function Scene(){
         
         scene.add(light);
         const title = document.getElementById('title')
-        const subtitle = document.getElementById('subtitle')
         if (title) title.innerText = titles[0];
-        if (subtitle) subtitle.innerText = subtitles[0];
 
         function slideTo(direction: number, newIndex : Record<string, any>){
             let newX = direction * 6;
@@ -217,21 +208,16 @@ export default function Scene(){
             .start()
             .onStart(()=>{
                 if (title) title.style.opacity = '0';
-                if (subtitle) subtitle.style.opacity = '0';
             })
             .onComplete(()=>{
                 if (title) title.style.opacity = '1';
-                if (subtitle) subtitle.style.opacity = '1';
                 if (newIndex.index === count) {
                     if (title) title.innerText = titles[0];
-                    if (subtitle) subtitle.innerText = subtitles[0];
                 }
                 else if (newIndex.index === -1){
                     if (title) title.innerText = titles[count - 1];
-                    if (subtitle) subtitle.innerText = subtitles[count - 1];
                 }else{
                     if (title) title.innerText = titles[newIndex.index];
-                    if (subtitle) subtitle.innerText = subtitles[newIndex.index];
                 }
             })
         }
@@ -299,7 +285,6 @@ export default function Scene(){
     return (
         <div id="body">
             <h1 id='title'></h1>
-            <h2 id='subtitle'></h2>
         </div>
     );
 }
