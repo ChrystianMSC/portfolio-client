@@ -41,28 +41,30 @@ export default function Scene(){
         scene.add(rootNode)
 
         const letfTexture = textureLoader.load('left.png');
-        const rightTexture = textureLoader.load('right.png')
+        const rightTexture = textureLoader.load('right.png');
+
+        const cards: THREE.Object3D[] = [];
+
+        const mouse = new THREE.Vector2();
+        const raycasterMouse = new THREE.Raycaster();
+        let hoveredCard: THREE.Object3D | null = null;
 
         let count = 6;
+
         for (let i = 0; i < count; i++) {
             const texture = textureLoader.load('socrates.jpg');
             texture.colorSpace = THREE.SRGBColorSpace;
 
             const baseNode = new THREE.Object3D();
-            baseNode.position.x = i * count;
-
-            const frame = new THREE.Mesh(
-                new THREE.BoxGeometry(3.1, 2.1, 0.09),
-                new THREE.MeshStandardMaterial({color: 0xf9f7de})
-            )
-            frame.name = `Frame_${i}` 
-            frame.position.z = -4;
+            baseNode.position.x = i * 6;
 
             const card = new THREE.Mesh(
                 new THREE.BoxGeometry(3, 2, 0.1),
                 new THREE.MeshStandardMaterial({map: texture})
             );
-            card.name = `Art_${i}` 
+            card.name = `Art_${i}`
+            card.userData.baseY = card.position.y;
+            cards.push(card);
             card.position.z = -4;
 
             const leftArrow = new THREE.Mesh(
@@ -73,7 +75,7 @@ export default function Scene(){
                 })
             )
             leftArrow.name = `leftArrow` 
-            leftArrow.userData = { index: (i === count - 1) ? 0 : (i + 1) };
+            leftArrow.userData = { index: i - 1 };
             leftArrow.position.set(-1.8, 0, -4);
 
             const rightArrow = new THREE.Mesh(
@@ -84,13 +86,12 @@ export default function Scene(){
                 })
             )
             rightArrow.name = `rightArrow` 
-            rightArrow.userData = { index: (i === 0) ? count - 1 : (i - 1) };
+            rightArrow.userData = { index: i + 1 };
             rightArrow.position.set(1.8, 0, -4);
 
             baseNode.add(card);
             baseNode.add(leftArrow);
             baseNode.add(rightArrow);
-            baseNode.add(frame);
             rootNode.add(baseNode);
         }
         
@@ -108,15 +109,14 @@ export default function Scene(){
         if (subtitle) subtitle.innerText = subtitles[0];
 
         function slideTo(direction: number, newIndex : Record<string, any>){
-            let newX = direction * count;
+            let newX = direction * 6;
             console.log(direction);
             console.log(newIndex.index);
-
-            if (direction === -1 && newIndex.index === 1) {
-                newX = count * count - 6;
-                
+            
+            if (direction === -1 && newIndex.index === -1) {
+                newX = count * 6 - 6;
             }
-            else if (direction === 1 && newIndex.index === 4) {
+            else if (direction === 1 && newIndex.index === count) {
                 newX = 0;
             }
             else{
@@ -134,15 +134,42 @@ export default function Scene(){
             .onComplete(()=>{
                 if (title) title.style.opacity = '1';
                 if (subtitle) subtitle.style.opacity = '1';
-                if (title) title.innerText = titles[newIndex.index];
-                if (subtitle) subtitle.innerText = subtitles[newIndex.index];
+                if (newIndex.index === count) {
+                    if (title) title.innerText = titles[0];
+                    if (subtitle) subtitle.innerText = subtitles[0];
+                }
+                else if (newIndex.index === -1){
+                    if (title) title.innerText = titles[count - 1];
+                    if (subtitle) subtitle.innerText = subtitles[count - 1];
+                }else{
+                    if (title) title.innerText = titles[newIndex.index];
+                    if (subtitle) subtitle.innerText = subtitles[newIndex.index];
+                }
             })
         }
 
         function animate() {
+            raycasterMouse.setFromCamera(mouse, camera);
+            const intersectsCard = raycasterMouse.intersectObjects(cards);
+
+            if (hoveredCard && (!intersectsCard.length || intersectsCard[0].object !== hoveredCard)) {
+                hoveredCard.rotation.set(0, 0, 0);
+                hoveredCard = null;
+            }
+
+            const time = Date.now() * 0.001;
+            cards.forEach((card, idx) => {
+                const floatOffset = Math.sin(time + idx) * 0.05; // Subtle float
+                card.position.y = card.userData.baseY + floatOffset;
+            });
             updateTween()
             renderer.render( scene, camera );
         }
+
+        window.addEventListener('mousemove', (ev) => {
+            mouse.x = (ev.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(ev.clientY / window.innerHeight) * 2 + 1;
+        });
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
